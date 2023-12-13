@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/dirent.h>
+#include <string.h>
 
 #include "constants.h"
 #include "operations.h"
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Failed to initialize EMS\n");
     return 1;
   }
-
+	printf("EMS initialized\n");
   char * dirpath = argv[DIR_ARG_INDEX];
   DIR * dir = opendir(dirpath);
   if (dir == NULL) {
@@ -46,28 +47,52 @@ int main(int argc, char *argv[]) {
 
   entry = readdir(dir);
   while (entry) {
-	// read ALL files in the directory
+	// read all files in the directory
 	if (entry->d_type == DT_REG) {
-		
+	  // check if file is .job terminated
+	  char * filename = entry->d_name;
+	  int filename_len =(int) strlen(filename);
+
+	  if (filename_len > JOB_FILE_EXTENSION_LEN &&
+		  strcmp(filename + filename_len - JOB_FILE_EXTENSION_LEN, JOB_FILE_EXTENSION) == 0) {
+
+		  char *filepath = malloc(strlen(dirpath) + strlen(entry->d_name) + 2);
+          if (filepath == NULL) {
+            fprintf(stderr, "Error allocating memory for filepath\n");
+            return 1;
+          }
+		  sprintf(filepath, "%s/%s", dirpath, entry->d_name);
+		  fprintf(stdout, "Processing file %s\n", filepath);
+
+		  if (ems_submit_file(filepath)) {
+			  fprintf(stderr, "Failed to submit file %s\n", filepath);
+			  return 1;
+		  }
+
+		  free(filepath);
+	  }
 	}
 
   	entry = readdir(dir);
   }
 
+  return 0;
 
-  while (1) {
-    unsigned int event_id, delay;
-    size_t num_rows, num_columns, num_coords;
-    size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
 
-    printf("> ");
-    fflush(stdout);
+}
 
-    switch (get_next(STDIN_FILENO)) {
+int exec_file(int fd) {
+  unsigned int event_id, delay;
+  size_t num_rows, num_columns, num_coords;
+  size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
+
+    printf("exec_file\n");
+
+  switch (get_next(fd)) {
       case CMD_CREATE:
-        if (parse_create(STDIN_FILENO, &event_id, &num_rows, &num_columns) != 0) {
+        if (parse_create(fd, &event_id, &num_rows, &num_columns) != 0) {
           fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
+          return 1;
         }
 
         if (ems_create(event_id, num_rows, num_columns)) {
@@ -77,11 +102,11 @@ int main(int argc, char *argv[]) {
         break;
 
       case CMD_RESERVE:
-        num_coords = parse_reserve(STDIN_FILENO, MAX_RESERVATION_SIZE, &event_id, xs, ys);
+        num_coords = parse_reserve(fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
 
         if (num_coords == 0) {
           fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
+          return 1;
         }
 
         if (ems_reserve(event_id, num_coords, xs, ys)) {
@@ -93,7 +118,7 @@ int main(int argc, char *argv[]) {
       case CMD_SHOW:
         if (parse_show(STDIN_FILENO, &event_id) != 0) {
           fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
+          return 1;
         }
 
         if (ems_show(event_id)) {
@@ -112,7 +137,7 @@ int main(int argc, char *argv[]) {
       case CMD_WAIT:
         if (parse_wait(STDIN_FILENO, &delay, NULL) == -1) {  // thread_id is not implemented
           fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
+          return 1;
         }
 
         if (delay > 0) {
@@ -124,7 +149,7 @@ int main(int argc, char *argv[]) {
 
       case CMD_INVALID:
         fprintf(stderr, "Invalid command. See HELP for usage\n");
-        break;
+        return 1;
 
       case CMD_HELP:
         printf(
@@ -145,7 +170,10 @@ int main(int argc, char *argv[]) {
 
       case EOC:
         ems_terminate();
-        return 0;
+        break;
+        default:
+        fprintf(stderr, "Invalid command. See HELP for usage\n");
+        return 1;
     }
+  return 0;
   }
-}

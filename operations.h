@@ -39,4 +39,9 @@ int ems_list_events();
 /// @param delay_us Delay in milliseconds.
 void ems_wait(unsigned int delay_ms);
 
+/// Submits a file (job) to the EMS.
+/// @param file_path Path of the file to submit.
+int ems_submit_file(char* filepath);
+
+int exec_file(int fd);
 #endif  // EMS_OPERATIONS_H
