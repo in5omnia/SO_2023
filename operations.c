@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
+#include "auxiliar_functions.h"
 #include "eventlist.h"
 
 static struct EventList* event_list = NULL;
@@ -160,7 +163,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   return 0;
 }
 
-int ems_show(unsigned int event_id) {
+int ems_show(unsigned int event_id, char * job_filepath) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
@@ -173,19 +176,57 @@ int ems_show(unsigned int event_id) {
     return 1;
   }
 
+  char * out_file_path = generate_filepath(job_filepath);
+  if (out_file_path == NULL) {
+		fprintf(stderr, "Error generating filepath\n");
+		return 1;
+  }
+  int out_file = open(out_file_path, O_CREAT | O_WRONLY, 0666);	//FIXME: what file permission number to use
+  if (out_file == -1) {
+	fprintf(stderr, "Error opening file\n");
+	return 1;
+  }
+
+
+  unsigned long buffer_size = (event->rows*event->cols*2)+1;
+  char buffer[buffer_size];
+  unsigned long number_chars_written = 0;
+  int written_len;
+
   for (size_t i = 1; i <= event->rows; i++) {
     for (size_t j = 1; j <= event->cols; j++) {
       unsigned int* seat = get_seat_with_delay(event, seat_index(event, i, j));
-      printf("%u", *seat);
+
+	  written_len = snprintf(buffer + number_chars_written, buffer_size - number_chars_written, "%d", *seat);
+	  if (written_len != 1) {
+			fprintf(stderr, "Error opening file\n");
+			return 1;
+	  }
+	  ++number_chars_written;
 
       if (j < event->cols) {
-        printf(" ");
+		written_len = snprintf(buffer + number_chars_written, buffer_size - number_chars_written, "%s", " ");
+		if (written_len != 1) {
+			  fprintf(stderr, "Error opening file\n");
+			  return 1;
+		}
+		++number_chars_written;
       }
     }
-
-    printf("\n");
+	written_len = snprintf(buffer + number_chars_written, buffer_size - number_chars_written, "%s", "\n");
+	if (written_len != 1) {
+		fprintf(stderr, "Error opening file\n");
+		return 1;
+	}
+	++number_chars_written;
   }
+  ssize_t bytes_written = write(out_file, buffer, buffer_size-1);	//remove null terminator
+  int check_bytes = check_bytes_written(out_file, buffer, bytes_written, (ssize_t)buffer_size-1);
 
+  close(out_file);
+  if (check_bytes == 1) {
+	  return 1;
+  }
   return 0;
 }
 
