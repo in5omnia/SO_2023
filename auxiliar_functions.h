@@ -12,6 +12,8 @@
 
 #define EXTENSION_STR ".out"
 #define EXTENSION_LEN 4
+#define EVENT_LIST_BUFFER_SIZE 10 //"Event: 1\n"
+#define EVENT_LIST_CHARS_WRITTEN 7
 
 char* generate_filepath(char* filename);
 int check_bytes_written(int out_file, const char* buffer, ssize_t bytes_written, ssize_t bytes_to_write);

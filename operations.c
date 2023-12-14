@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <fcntl.h>
+#include <sys/fcntl.h>
 #include <unistd.h>
 
 #include "auxiliar_functions.h"
@@ -181,7 +181,7 @@ int ems_show(unsigned int event_id, char * job_filepath) {
 		fprintf(stderr, "Error generating filepath\n");
 		return 1;
   }
-  int out_file = open(out_file_path, O_CREAT | O_WRONLY, 0666);	//FIXME: what file permission number to use
+  int out_file = open(out_file_path, O_CREAT | O_WRONLY | O_APPEND, 0666);	//FIXME: what file permission number to use
   if (out_file == -1) {
 	fprintf(stderr, "Error opening file\n");
 	return 1;
@@ -230,7 +230,7 @@ int ems_show(unsigned int event_id, char * job_filepath) {
   return 0;
 }
 
-int ems_list_events() {
+int ems_list_events(char * job_filepath) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
@@ -241,13 +241,46 @@ int ems_list_events() {
     return 0;
   }
 
-  struct ListNode* current = event_list->head;
-  while (current != NULL) {
-    printf("Event: ");
-    printf("%u\n", (current->event)->id);
-    current = current->next;
+  char * out_file_path = generate_filepath(job_filepath);
+  if (out_file_path == NULL) {
+	  fprintf(stderr, "Error generating filepath\n");
+	  return 1;
+  }
+  int out_file = open(out_file_path, O_CREAT | O_WRONLY | O_APPEND, 0666);	//FIXME: what file permission number to use
+  if (out_file == -1) {
+	  fprintf(stderr, "Error opening file\n");
+	  return 1;
   }
 
+
+  ssize_t bytes_written;
+  int written_len;
+  char buffer[EVENT_LIST_BUFFER_SIZE];
+
+  struct ListNode* current = event_list->head;
+  while (current != NULL) {
+
+	  written_len = snprintf(buffer, EVENT_LIST_BUFFER_SIZE, "Event: ");
+	  if (written_len != EVENT_LIST_CHARS_WRITTEN) {
+		  fprintf(stderr, "Error writing to buffer1\n");
+		  return 1;
+	  }
+	  written_len = snprintf(buffer + EVENT_LIST_CHARS_WRITTEN, EVENT_LIST_BUFFER_SIZE - EVENT_LIST_CHARS_WRITTEN, "%u\n", (current->event)->id);
+	  if (written_len != 2) {
+		  fprintf(stderr, "Error writing to buffer2\n");
+		  return 1;
+	  }
+	  bytes_written = write(out_file, buffer, EVENT_LIST_BUFFER_SIZE-1);	//remove null terminator
+	  int check_bytes = check_bytes_written(out_file, buffer, bytes_written, (ssize_t)EVENT_LIST_BUFFER_SIZE-1);
+	  if (check_bytes == 1) {
+		  close(out_file);
+		  return 1;
+	  }
+	  //printf("Event: ");
+	  //printf("%u\n", (current->event)->id);
+	  current = current->next;
+  }
+  close(out_file);
   return 0;
 }
 
