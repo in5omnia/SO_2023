@@ -199,7 +199,7 @@ int ems_show(unsigned int event_id, char * job_filepath) {
 
 	  written_len = snprintf(buffer + number_chars_written, buffer_size - number_chars_written, "%d", *seat);
 	  if (written_len != 1) {
-			fprintf(stderr, "Error opening file\n");
+			fprintf(stderr, "Error writing to buffer\n");
 			return 1;
 	  }
 	  ++number_chars_written;
@@ -207,7 +207,7 @@ int ems_show(unsigned int event_id, char * job_filepath) {
       if (j < event->cols) {
 		written_len = snprintf(buffer + number_chars_written, buffer_size - number_chars_written, "%s", " ");
 		if (written_len != 1) {
-			  fprintf(stderr, "Error opening file\n");
+			  fprintf(stderr, "Error writing to buffer\n");
 			  return 1;
 		}
 		++number_chars_written;
@@ -215,7 +215,7 @@ int ems_show(unsigned int event_id, char * job_filepath) {
     }
 	written_len = snprintf(buffer + number_chars_written, buffer_size - number_chars_written, "%s", "\n");
 	if (written_len != 1) {
-		fprintf(stderr, "Error opening file\n");
+		fprintf(stderr, "Error writing to buffer\n");
 		return 1;
 	}
 	++number_chars_written;
