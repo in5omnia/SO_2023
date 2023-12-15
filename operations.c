@@ -333,3 +333,34 @@ int ems_submit_file(char *filepath) {
   close(fd);
   return 0;
 }
+
+int ems_help(char *job_filepath) {
+
+  char *out_file_path = generate_filepath(job_filepath);
+  if (out_file_path == NULL) {
+    fprintf(stderr, "Error generating filepath\n");
+    return 1;
+  }
+  int out_file = open(out_file_path, O_CREAT | O_WRONLY | O_APPEND,
+                      0666); // FIXME: what file permission number to use
+  if (out_file == -1) {
+    fprintf(stderr, "Error opening file\n");
+    return 1;
+  }
+
+  ssize_t bytes_written;
+  char buffer[HELP_BUFFER_SIZE];
+  memset(buffer, '\0', HELP_BUFFER_SIZE);
+  strcpy(buffer, HELP_MESSAGE);
+
+  bytes_written = write(out_file, buffer,
+                        HELP_BUFFER_SIZE - 1); // remove null terminator
+  int check_bytes = check_bytes_written(out_file, buffer, bytes_written,
+                                        (ssize_t)HELP_BUFFER_SIZE - 1);
+  close(out_file);
+
+  if (check_bytes == 1) {
+    return 1;
+  }
+  return 0;
+}

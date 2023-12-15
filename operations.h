@@ -45,4 +45,7 @@ void ems_wait(unsigned int delay_ms);
 int ems_submit_file(char *filepath);
 
 int exec_file(int fd, char *job_filepath);
+
+int ems_help(char *job_filepath);
+
 #endif // EMS_OPERATIONS_H
