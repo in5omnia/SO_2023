@@ -7,3 +7,6 @@
 #define DIR_ARG_INDEX 1
 
 #define DT_REG 8
+
+#define JOB_FILE_EXTENSION ".jobs"
+#define JOB_FILE_EXTENSION_LEN 5
