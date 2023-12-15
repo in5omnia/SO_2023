@@ -24,16 +24,17 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols);
 /// @param xs Array of rows of the seats to reserve.
 /// @param ys Array of columns of the seats to reserve.
 /// @return 0 if the reservation was created successfully, 1 otherwise.
-int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys);
+int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs,
+                size_t *ys);
 
 /// Prints the given event.
 /// @param event_id Id of the event to print.
 /// @return 0 if the event was printed successfully, 1 otherwise.
-int ems_show(unsigned int event_id);
+int ems_show(unsigned int event_id, char *job_filepath);
 
 /// Prints all the events.
 /// @return 0 if the events were printed successfully, 1 otherwise.
-int ems_list_events();
+int ems_list_events(char *job_filepath);
 
 /// Waits for a given amount of time.
 /// @param delay_us Delay in milliseconds.
@@ -41,7 +42,7 @@ void ems_wait(unsigned int delay_ms);
 
 /// Submits a file (job) to the EMS.
 /// @param file_path Path of the file to submit.
-int ems_submit_file(char* filepath);
+int ems_submit_file(char *filepath);
 
-int exec_file(int fd);
-#endif  // EMS_OPERATIONS_H
+int exec_file(int fd, char *job_filepath);
+#endif // EMS_OPERATIONS_H
