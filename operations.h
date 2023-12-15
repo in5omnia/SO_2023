@@ -1,6 +1,7 @@
 #ifndef EMS_OPERATIONS_H
 #define EMS_OPERATIONS_H
 
+#include <pthread.h>
 #include <stddef.h>
 
 /// Initializes the EMS state.

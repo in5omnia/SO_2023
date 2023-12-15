@@ -76,13 +76,15 @@ int ems_terminate() {
 }
 
 // Creates a new event.
-int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
+int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols,
+               pthread_mutex_t *create_lock) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
   }
-
+  pthread_mutex_lock(create_lock);
   if (get_event_with_delay(event_id) != NULL) {
+    pthread_mutex_unlock(create_lock);
     fprintf(stderr, "Event already exists\n");
     return 1;
   }
@@ -90,6 +92,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   struct Event *event = malloc(sizeof(struct Event));
 
   if (event == NULL) {
+    pthread_mutex_unlock(create_lock);
     fprintf(stderr, "Error allocating memory for event\n");
     return 1;
   }
@@ -101,6 +104,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   event->data = malloc(num_rows * num_cols * sizeof(unsigned int));
 
   if (event->data == NULL) {
+    pthread_mutex_unlock(create_lock);
     fprintf(stderr, "Error allocating memory for event data\n");
     free(event);
     return 1;
@@ -111,47 +115,47 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   if (append_to_list(event_list, event) != 0) {
+    pthread_mutex_unlock(create_lock);
     fprintf(stderr, "Error appending event to list\n");
     free(event->data);
     free(event);
     return 1;
   }
-
+  pthread_mutex_unlock(create_lock);
   return 0;
 }
 
 // Reserves seats for an event.
-int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs,
-                size_t *ys) {
+int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys,
+                pthread_mutex_t *reserve_lock) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
   }
-
   struct Event *event = get_event_with_delay(event_id);
 
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
     return 1;
   }
-
+  pthread_mutex_lock(reserve_lock);
   unsigned int reservation_id = ++event->reservations;
-
   size_t i = 0;
   for (; i < num_seats; i++) {
     size_t row = xs[i];
     size_t col = ys[i];
 
     if (row <= 0 || row > event->rows || col <= 0 || col > event->cols) {
+      pthread_mutex_unlock(reserve_lock);
       fprintf(stderr, "Invalid seat\n");
       break;
     }
 
     if (*get_seat_with_delay(event, seat_index(event, row, col)) != 0) {
+      pthread_mutex_unlock(reserve_lock);
       fprintf(stderr, "Seat already reserved\n");
       break;
     }
-
     *get_seat_with_delay(event, seat_index(event, row, col)) = reservation_id;
   }
 
@@ -161,13 +165,21 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs,
     for (size_t j = 0; j < i; j++) {
       *get_seat_with_delay(event, seat_index(event, xs[j], ys[j])) = 0;
     }
+    pthread_mutex_unlock(reserve_lock);
     return 1;
   }
 
+  printf("Reserved in Event %d seats ", event_id);
+  for (int e = 0; i < num_seats; i++) {
+    printf("(%zu,%zu) ", xs[e], ys[e]);
+  }
+
+  pthread_mutex_unlock(reserve_lock);
   return 0;
 }
 
-int ems_show(unsigned int event_id, char *job_filepath) {
+int ems_show(unsigned int event_id, char *job_filepath,
+             pthread_mutex_t *write_lock, pthread_mutex_t *reserve_lock) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
@@ -176,6 +188,7 @@ int ems_show(unsigned int event_id, char *job_filepath) {
   struct Event *event = get_event_with_delay(event_id);
 
   if (event == NULL) {
+    pthread_mutex_unlock(reserve_lock);
     fprintf(stderr, "Event not found\n");
     return 1;
   }
@@ -198,6 +211,7 @@ int ems_show(unsigned int event_id, char *job_filepath) {
   int written_len;
 
   memset(buffer, '\0', buffer_size);
+  pthread_mutex_lock(reserve_lock);
 
   for (size_t i = 1; i <= event->rows; i++) {
     for (size_t j = 1; j <= event->cols; j++) {
@@ -206,6 +220,7 @@ int ems_show(unsigned int event_id, char *job_filepath) {
       written_len = snprintf(buffer + number_chars_written,
                              buffer_size - number_chars_written, "%d", *seat);
       if (written_len != 1) {
+        pthread_mutex_unlock(reserve_lock);
         fprintf(stderr, "Error writing to buffer\n");
         return 1;
       }
@@ -215,6 +230,7 @@ int ems_show(unsigned int event_id, char *job_filepath) {
         written_len = snprintf(buffer + number_chars_written,
                                buffer_size - number_chars_written, "%s", " ");
         if (written_len != 1) {
+          pthread_mutex_unlock(reserve_lock);
           fprintf(stderr, "Error writing to buffer\n");
           return 1;
         }
@@ -229,19 +245,22 @@ int ems_show(unsigned int event_id, char *job_filepath) {
     }
     ++number_chars_written;
   }
+  pthread_mutex_unlock(reserve_lock);
+  pthread_mutex_lock(write_lock); // lock when writing
   ssize_t bytes_written =
       write(out_file, buffer, buffer_size - 1); // remove null terminator
   int check_bytes = check_bytes_written(out_file, buffer, bytes_written,
                                         (ssize_t)buffer_size - 1);
-  printf("LOOK bytes_written: %zd\n", bytes_written);
   close(out_file);
+  pthread_mutex_unlock(write_lock);
   if (check_bytes == 1) {
     return 1;
   }
   return 0;
 }
 
-int ems_list_events(char *job_filepath) {
+int ems_list_events(char *job_filepath, pthread_mutex_t *write_lock,
+                    pthread_mutex_t *create_lock) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
@@ -260,7 +279,8 @@ int ems_list_events(char *job_filepath) {
   }
 
   ssize_t bytes_written;
-
+  pthread_mutex_lock(create_lock);
+  pthread_mutex_lock(write_lock); // lock when writing
   if (event_list->head == NULL) {
 
     char buffer[NO_EVENTS_BUFFER_SIZE];
@@ -272,6 +292,8 @@ int ems_list_events(char *job_filepath) {
     int check_bytes = check_bytes_written(out_file, buffer, bytes_written,
                                           (ssize_t)NO_EVENTS_BUFFER_SIZE - 1);
     if (check_bytes == 1) {
+      pthread_mutex_unlock(write_lock);
+      pthread_mutex_unlock(create_lock);
       close(out_file);
       return 1;
     }
@@ -287,6 +309,8 @@ int ems_list_events(char *job_filepath) {
 
       written_len = snprintf(buffer, EVENT_LIST_BUFFER_SIZE, "Event: ");
       if (written_len != EVENT_LIST_CHARS_WRITTEN) {
+        pthread_mutex_unlock(write_lock);
+        pthread_mutex_unlock(create_lock);
         fprintf(stderr, "Error writing to buffer1\n");
         return 1;
       }
@@ -294,7 +318,9 @@ int ems_list_events(char *job_filepath) {
                              EVENT_LIST_BUFFER_SIZE - EVENT_LIST_CHARS_WRITTEN,
                              "%u\n", (current->event)->id);
       if (written_len != 2) {
-        fprintf(stderr, "Error writing to buffer2\n");
+        pthread_mutex_unlock(write_lock);
+        pthread_mutex_unlock(create_lock);
+        fprintf(stderr, "Error writing to buffer\n");
         return 1;
       }
       bytes_written =
@@ -302,15 +328,18 @@ int ems_list_events(char *job_filepath) {
                 EVENT_LIST_BUFFER_SIZE - 1); // remove null terminator
       int check_bytes = check_bytes_written(
           out_file, buffer, bytes_written, (ssize_t)EVENT_LIST_BUFFER_SIZE - 1);
-      if (check_bytes == 1) {
+
+      if (check_bytes == 1) { // problem writing to file
+        pthread_mutex_unlock(write_lock);
+        pthread_mutex_unlock(create_lock);
         close(out_file);
         return 1;
       }
-      // printf("Event: ");
-      // printf("%u\n", (current->event)->id);
       current = current->next;
     }
   }
+  pthread_mutex_unlock(write_lock);
+  pthread_mutex_unlock(create_lock);
   close(out_file);
   return 0;
 }
@@ -318,4 +347,32 @@ int ems_list_events(char *job_filepath) {
 void ems_wait(unsigned int delay_ms) {
   struct timespec delay = delay_to_timespec(delay_ms);
   nanosleep(&delay, NULL);
+}
+
+int ems_barrier(pthread_cond_t *barrier_active_cond,
+                pthread_cond_t *barrier_unlock_cond,
+                pthread_mutex_t *barrier_active_lock,
+                int max_threads, unsigned int* waiting, unsigned int * barrier_active) {
+
+	printf("BARRIER\n");
+	pthread_mutex_lock(barrier_active_lock);
+	printf("BARRIER LOCKED\n");
+	(*waiting)= (unsigned int) max_threads-1;
+	(*barrier_active) = 1;
+	printf("Barrier max threads: %d\t active: %d\n", max_threads, *barrier_active);
+	printf("LOCATION OF BARRIER STATUS: %p\n", barrier_active);
+
+	while (*waiting != 0){
+		printf("BARRIER WAITING num wait: %d\n", *waiting);
+		printf("BARRIER STATUS: %d\n", (*barrier_active));
+		pthread_cond_wait(barrier_active_cond, barrier_active_lock);
+	}
+
+	(*barrier_active) = 0;
+	printf("BARRIER INACTIVE\n");
+	pthread_cond_broadcast(barrier_unlock_cond);	//unlocks barrier when all threads have finished their commands
+	printf("BARRIER BROADCASTED\n");
+	pthread_mutex_unlock(barrier_active_lock);
+	printf("BARRIER UNLOCKED\n");
+  return 0;
 }
