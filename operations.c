@@ -319,17 +319,3 @@ void ems_wait(unsigned int delay_ms) {
   struct timespec delay = delay_to_timespec(delay_ms);
   nanosleep(&delay, NULL);
 }
-
-int ems_submit_file(char *filepath) {
-  int fd = open(filepath, O_RDONLY);
-  if (fd == -1) {
-    fprintf(stderr, "Error opening file\n");
-    return 1;
-  }
-  if (exec_file(fd, filepath)) {
-    fprintf(stderr, "Error executing file\n");
-    return 1;
-  }
-  close(fd);
-  return 0;
-}

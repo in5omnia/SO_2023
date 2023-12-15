@@ -16,7 +16,8 @@ int ems_terminate();
 /// @param num_rows Number of rows of the event to be created.
 /// @param num_cols Number of columns of the event to be created.
 /// @return 0 if the event was created successfully, 1 otherwise.
-int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols);
+int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols,
+               pthread_mutex_t *create_lock);
 
 /// Creates a new reservation for the given event.
 /// @param event_id Id of the event to create a reservation for.
@@ -24,25 +25,27 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols);
 /// @param xs Array of rows of the seats to reserve.
 /// @param ys Array of columns of the seats to reserve.
 /// @return 0 if the reservation was created successfully, 1 otherwise.
-int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs,
-                size_t *ys);
+int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs, size_t *ys,
+                pthread_mutex_t *reserve_lock);
 
 /// Prints the given event.
 /// @param event_id Id of the event to print.
 /// @return 0 if the event was printed successfully, 1 otherwise.
-int ems_show(unsigned int event_id, char *job_filepath);
+int ems_show(unsigned int event_id, char *job_filepath,
+             pthread_mutex_t *write_lock, pthread_mutex_t *reserve_lock);
 
 /// Prints all the events.
 /// @return 0 if the events were printed successfully, 1 otherwise.
-int ems_list_events(char *job_filepath);
+int ems_list_events(char *job_filepath, pthread_mutex_t *write_lock,
+                    pthread_mutex_t *create_lock);
 
 /// Waits for a given amount of time.
 /// @param delay_us Delay in milliseconds.
 void ems_wait(unsigned int delay_ms);
 
-/// Submits a file (job) to the EMS.
-/// @param file_path Path of the file to submit.
-int ems_submit_file(char *filepath);
+int ems_barrier(pthread_cond_t *barrier_active_cond,
+                pthread_cond_t *barrier_unlock_cond,
+                pthread_mutex_t *barrier_active_lock,
+                int max_threads, unsigned int *waiting, unsigned int * barrier_active);
 
-int exec_file(int fd, char *job_filepath);
 #endif // EMS_OPERATIONS_H

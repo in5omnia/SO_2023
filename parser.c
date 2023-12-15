@@ -47,6 +47,7 @@ static void cleanup(int fd) {
 enum Command get_next(int fd) {
   char buf[16];
   memset(buf, '\0', 16);
+  // print fd
   ssize_t bytes_read = read(fd, buf, 1);
   if (bytes_read != 1) {
     return EOC;
@@ -84,7 +85,6 @@ enum Command get_next(int fd) {
       cleanup(fd);
       return CMD_INVALID;
     }
-
     return CMD_LIST_EVENTS;
 
   case 'B':
@@ -163,7 +163,6 @@ int parse_create(int fd, unsigned int *event_id, size_t *num_rows,
 size_t parse_reserve(int fd, size_t max, unsigned int *event_id, size_t *xs,
                      size_t *ys) {
   char ch;
-
   if (read_uint(fd, event_id, &ch) != 0 || ch != ' ') {
     cleanup(fd);
     return 0;
