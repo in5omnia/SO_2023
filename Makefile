@@ -12,8 +12,8 @@ endif
 
 all: ems
 
-ems: main.c constants.h operations.o parser.o eventlist.o auxiliar_functions.o
-	$(CC) $(CFLAGS) $(SLEEP) -o ems main.c operations.o parser.o eventlist.o auxiliar_functions.o
+ems: main.c main.h constants.h operations.o parser.o eventlist.o auxiliar_functions.o linkedList.c linkedList.h linkedList.o
+	$(CC) $(CFLAGS) $(SLEEP) -o ems main.c operations.o parser.o eventlist.o linkedList.o auxiliar_functions.o
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c ${@:.o=.c}

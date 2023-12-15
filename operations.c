@@ -54,7 +54,6 @@ static size_t seat_index(struct Event *event, size_t row, size_t col) {
 }
 
 int ems_init(unsigned int delay_ms) {
-
   if (event_list != NULL) {
     fprintf(stderr, "EMS state has already been initialized\n");
     return 1;

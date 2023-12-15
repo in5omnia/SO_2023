@@ -45,12 +45,10 @@ static void cleanup(int fd) {
 }
 
 enum Command get_next(int fd) {
-  char buf[16]; // previously 16
+  char buf[16];
   memset(buf, '\0', 16);
   ssize_t bytes_read = read(fd, buf, 1);
-  printf("read: %lu\t buf\n", bytes_read);
   if (bytes_read != 1) {
-    printf("got next was EOF \n");
     return EOC;
   }
 
@@ -60,7 +58,6 @@ enum Command get_next(int fd) {
       cleanup(fd);
       return CMD_INVALID;
     }
-    printf("CMD CREATE \n");
     return CMD_CREATE;
 
   case 'R':
@@ -68,7 +65,6 @@ enum Command get_next(int fd) {
       cleanup(fd);
       return CMD_INVALID;
     }
-    printf("CMD RESERVE \n");
     return CMD_RESERVE;
 
   case 'S':
@@ -76,7 +72,6 @@ enum Command get_next(int fd) {
       cleanup(fd);
       return CMD_INVALID;
     }
-    printf("CMD SHOW \n");
     return CMD_SHOW;
 
   case 'L':
