@@ -1,4 +1,4 @@
-## Operating Systems Project 1
+## Operating Systems Project - Delivery 1
 
 Consisted in extending TecnicoFS (Técnico File System), a simplified file system in user-mode. 
 It is implemented as a library, which can be used by any client process that wishes to have a private instance of a file system in which it can maintain its data.
